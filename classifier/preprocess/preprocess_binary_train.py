@@ -1,48 +1,59 @@
-import json
 import os
+import json
 from preprocess_utils import *
 
-lst_dataset_name = ['musique', '2wikimultihopqa', 'hotpotqa', 'nq', 'trivia', 'squad']
+# Create directories if they do not exist
+def ensure_dir_exists(file_path):
+    directory = os.path.dirname(file_path)
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        print(f"Created directory: {directory}")
 
-# 2wikimultihopqa
-train_input_file = os.path.join("raw_data", '2wikimultihopqa', 'train.json')
-train_output_file = os.path.join('classifier', "data", "musique_hotpot_wiki2_nq_tqa_sqd", 'binary', '2wikimultihopqa_train.json')
-save_inductive_bias_2wikimultihopqa(train_input_file, train_output_file)
+# Load JSONL file in chunks, ensuring lines don't exceed a character limit
+def load_json_in_chunks(file_path, char_limit=6000):
+    data = []
+    with open(file_path, 'r') as file:
+        for i, line in enumerate(file):
+            if len(line) > char_limit:
+                print(f"Skipping line {i + 1} due to character limit.")
+                continue
+            try:
+                data.append(json.loads(line))
+            except json.JSONDecodeError as e:
+                print(f"Error decoding line {i + 1}: {e}")
+    return data
 
-# hotpotqa
-train_input_file = os.path.join("raw_data", 'hotpotqa', 'hotpot_train_v1.1.json')
-train_output_file = os.path.join('classifier', "data", "musique_hotpot_wiki2_nq_tqa_sqd", 'binary', 'hotpotqa_train.json')
-save_inductive_bias_hotpotqa(train_input_file, train_output_file)
+# Save JSONL file
+def save_jsonl(output_file, data):
+    ensure_dir_exists(output_file)  # Ensure the directory exists
+    with open(output_file, 'w') as file:
+        for entry in data:
+            file.write(json.dumps(entry) + '\n')
 
-# musique
-train_input_file = os.path.join("raw_data", 'musique', 'musique_ans_v1.0_train.jsonl')
-train_output_file = os.path.join('classifier', "data", "musique_hotpot_wiki2_nq_tqa_sqd", 'binary', 'musique_train.json')
-save_inductive_bias_musique(train_input_file, train_output_file)
+# Process and save HotpotQA data
+def process_hotpotqa_data(input_file, output_file):
+    print(f"Loading data from {input_file}...")
+    json_data = load_json_in_chunks(input_file)  # Load data without limits
+    print(f"Loaded {len(json_data)} valid objects from the file.")
+    print(f"Saving processed data to {output_file}...")
+    save_jsonl(output_file, json_data)
+    return json_data
 
-# nq
-single_data_name = 'nq'
-train_input_file = os.path.join("raw_data", single_data_name, 'biencoder-nq-train.json')
-train_output_file = os.path.join('classifier', "data", "musique_hotpot_wiki2_nq_tqa_sqd", 'binary', f'{single_data_name}_train.json')
-save_inductive_bias_single_data(train_input_file, train_output_file, single_data_name, 'train')
+def main():
+    # Paths to the input and output files
+    train_input_file = os.path.join("processed_data", 'hotpotqa', 'train.jsonl')  # Adjust if needed
+    train_output_file = os.path.join('classifier', "data", "hotpotqa", 'binary', 'hotpotqa_train.jsonl')
 
-# squad
-single_data_name = 'squad'
-train_input_file = os.path.join("raw_data", single_data_name, 'biencoder-squad1-train.json')
-train_output_file = os.path.join('classifier', "data", "musique_hotpot_wiki2_nq_tqa_sqd", 'binary', f'{single_data_name}_train.json')
-save_inductive_bias_single_data(train_input_file, train_output_file, single_data_name, 'train')
+    # Step 1: Process the HotpotQA data
+    json_data = process_hotpotqa_data(train_input_file, train_output_file)
 
-# trivia
-single_data_name = 'trivia'
-train_input_file = os.path.join("raw_data", single_data_name, 'biencoder-trivia-train.json')
-train_output_file = os.path.join('classifier', "data", "musique_hotpot_wiki2_nq_tqa_sqd", 'binary', f'{single_data_name}_train.json')
-save_inductive_bias_single_data(train_input_file, train_output_file, single_data_name, 'train')
+    # Step 2: Save a subset (e.g., 400 samples) for testing
+    subset_file = os.path.join("classifier", "data", 'hotpotqa', 'binary', 'hotpotqa_subset.jsonl')
+    subset_data = json_data[:400]
+    print(f"Saving a subset of {len(subset_data)} objects to {subset_file}...")
+    save_jsonl(subset_file, subset_data)
 
-# concat total datasets
-lst_total_data_per_set = []
-for dataset_name in lst_dataset_name:
-    input_file = os.path.join("classifier", "data", 'musique_hotpot_wiki2_nq_tqa_sqd', 'binary', f'{dataset_name}_train.json')
-    json_data = load_json(input_file)[:400]
-    lst_total_data_per_set = lst_total_data_per_set + json_data
+    print("Processing complete.")
 
-output_file = os.path.join("classifier", "data", 'musique_hotpot_wiki2_nq_tqa_sqd', 'binary', 'total_data_train.json')
-save_json(output_file, lst_total_data_per_set)
+if __name__ == "__main__":
+    main()

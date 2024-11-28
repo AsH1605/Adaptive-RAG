@@ -1,25 +1,22 @@
+import os
 import json
 import jsonlines
 from preprocess_utils import *
 
+# Get the dataset name from environment variable
+dataset_name = os.getenv('DATASET', 'hotpotqa')  # Default to 'hotpotqa' if not set
 
-orig_nq_file = os.path.join("processed_data", "nq", 'test_subsampled.jsonl')
-orig_trivia_file = os.path.join("processed_data", "trivia", 'test_subsampled.jsonl')
-orig_squad_file = os.path.join("processed_data", "squad", 'test_subsampled.jsonl')
-orig_musique_file = os.path.join("processed_data", "musique", 'test_subsampled.jsonl')
-orig_hotpotqa_file = os.path.join("processed_data", "hotpotqa", 'test_subsampled.jsonl')
-orig_wikimultihopqa_file = os.path.join("processed_data", "2wikimultihopqa", 'test_subsampled.jsonl')
-    
-lst_musique = prepare_predict_file(orig_musique_file, 'musique')
-lst_hotpotqa = prepare_predict_file(orig_hotpotqa_file, 'hotpotqa')
-lst_wikimultihopqa = prepare_predict_file(orig_wikimultihopqa_file, '2wikimultihopqa')
-lst_nq = prepare_predict_file(orig_nq_file, 'nq')
-lst_trivia = prepare_predict_file(orig_trivia_file, 'trivia')
-lst_squad = prepare_predict_file(orig_squad_file, 'squad')
+# Only load the dataset that you need (hotpotqa in this case)
+if dataset_name == 'hotpotqa':
+    orig_hotpotqa_file = os.path.join("processed_data", dataset_name, 'test_subsampled.jsonl')
+    lst_hotpotqa = prepare_predict_file(orig_hotpotqa_file, dataset_name)
 
-lst_total_data = lst_musique + lst_hotpotqa + lst_wikimultihopqa + lst_nq + lst_trivia + lst_squad
+    # Combine data (only hotpotqa data here)
+    lst_total_data = lst_hotpotqa
 
-output_path = os.path.join("classifier", "data", 'musique_hotpot_wiki2_nq_tqa_sqd')
+    # Save the results
+    output_path = os.path.join("classifier", "data", f'{dataset_name}_predictions')
+    save_json(output_path+'/predict.json', lst_total_data)
 
-save_json(output_path+'/predict.json', lst_total_data)
-
+else:
+    print(f"Dataset {dataset_name} is not supported or not available.")
